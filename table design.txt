@@ -1,0 +1,204 @@
+from django.db import models
+
+
+class Customer(models.Model):
+    company_name = models.CharField(max_length=255)
+    gstin = models.CharField(max_length=15, unique=True)
+    billing_address = models.TextField()
+    shipping_address = models.TextField()
+    contact_person = models.CharField(max_length=255, null=True, blank=True)
+    phone = models.CharField(max_length=15, null=True, blank=True)
+    email = models.EmailField(null=True, blank=True)
+
+    def __str__(self):
+        return self.company_name
+
+
+class SalesPerson(models.Model):
+    name = models.CharField(max_length=255)
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=15, null=True, blank=True)
+
+    def __str__(self):
+        return self.name
+
+
+class ServiceRequest(models.Model):
+    STATUS_CHOICES = [
+        ('open', 'Open'),
+        ('closed', 'Closed'),
+        ('in_progress', 'In Progress'),
+    ]
+
+    request_number = models.CharField(max_length=50, unique=True)
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    date_created = models.DateField(auto_now_add=True)
+    description = models.TextField()
+    status = models.CharField(max_length=50, choices=STATUS_CHOICES, default='open')
+
+    def __str__(self):
+        return f"Service Request {self.request_number} - {self.customer.company_name}"
+
+
+class Terms(models.Model):
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    is_active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return self.title
+
+
+class Invoice(models.Model):
+    STATUS_CHOICES = [
+        ('published', 'Published'),
+        ('draft', 'Draft'),
+    ]
+
+    PAYMENT_TERMS_CHOICES = [
+        ('net30', 'Net 30'),
+        ('net45', 'Net 45'),
+    ]
+
+    DELIVERY_TYPE_CHOICES = [
+        ('courier', 'Courier'),
+        ('pickup', 'Pick Up'),
+    ]
+
+    DISCOUNT_METHOD_CHOICES = [
+        ('line_wise', 'Line Wise'),
+        ('bill_wise_before_tax', 'Bill Wise Before Tax'),
+        ('bill_wise_after_tax', 'Bill Wise After Tax'),
+    ]
+
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft')
+    title = models.CharField(max_length=255)
+    tax_inclusive = models.BooleanField(default=False)
+    date = models.DateField()
+    payment_terms = models.CharField(max_length=10, choices=PAYMENT_TERMS_CHOICES)
+    place_of_supply = models.CharField(max_length=100)
+    project = models.CharField(max_length=100, null=True, blank=True)
+    reference = models.CharField(max_length=100, null=True, blank=True)
+    sales_person = models.ForeignKey(SalesPerson, on_delete=models.SET_NULL, null=True, blank=True)
+    service_request = models.ForeignKey(ServiceRequest, on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # New Fields
+    show_quantity = models.CharField(max_length=50)  # Character field for show quantity
+    length = models.CharField(max_length=50)  # Character field for length
+    width = models.CharField(max_length=50)  # Character field for width
+    contact_number = models.CharField(max_length=15, null=True, blank=True)  # Contact number
+    leave = models.CharField(max_length=50, null=True, blank=True)  # Leave dropdown (values can be predefined)
+    delivery_type = models.CharField(max_length=10, choices=DELIVERY_TYPE_CHOICES, default='courier')
+    tracking = models.CharField(max_length=255, null=True, blank=True)  # Tracking information
+    discount_method = models.CharField(max_length=50, choices=DISCOUNT_METHOD_CHOICES, default='line_wise')
+
+    def __str__(self):
+        return f"Invoice {self.title} for {self.customer.company_name}"
+
+
+class InvoiceItem(models.Model):
+    invoice = models.ForeignKey(Invoice, on_delete=models.CASCADE, related_name='items')
+    description = models.CharField(max_length=255)
+    quantity = models.IntegerField()
+    unit_price = models.DecimalField(max_digits=10, decimal_places=2)
+    discount = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
+    tax_rate = models.DecimalField(max_digits=5, decimal_places=2, default=0.00)  # Tax rate as a percentage
+    total = models.DecimalField(max_digits=10, decimal_places=2, editable=False)
+
+    def save(self, *args, **kwargs):
+        self.total = (self.unit_price * self.quantity) - self.discount  # Calculate total on save
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"Item {self.description} for Invoice {self.invoice.title}"
+
+
+class Sales(models.Model):
+    DELIVERY_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('delivered', 'Delivered'),
+    ]
+
+    COST_CENTER_CHOICES = [
+        ('sales', 'Sales'),
+        ('marketing', 'Marketing'),
+        ('operations', 'Operations'),
+        ('finance', 'Finance'),
+        # Add more cost centers as needed
+    ]
+
+    CATEGORY_CHOICES = [
+        ('new', 'New'),
+        ('renewal', 'Renewal'),
+        ('upgrade', 'Upgrade'),
+        ('downgrade', 'Downgrade'),
+        # Add more categories as needed
+    ]
+
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    title = models.CharField(max_length=255)
+    date = models.DateField()
+    place_of_supply = models.CharField(max_length=50)
+    project = models.CharField(max_length=50, null=True, blank=True)
+    sales_person = models.ForeignKey(SalesPerson, on_delete=models.SET_NULL, null=True, blank=True)
+    service_request = models.ForeignKey(ServiceRequest, on_delete=models.SET_NULL, null=True, blank=True)
+    bill_number = models.CharField(max_length=50, unique=True)
+    delivery_status = models.CharField(max_length=10, choices=DELIVERY_STATUS_CHOICES, default='pending')
+    delivery_type = models.CharField(max_length=50, default='Courier')
+    tracking = models.CharField(max_length=255, null=True, blank=True)
+    
+    # New Fields
+    cost_center = models.CharField(max_length=50, choices=COST_CENTER_CHOICES, null=True, blank=True)
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES, null=True, blank=True)
+    leave = models.CharField(max_length=50, null=True, blank=True)  # Leave information
+
+    def __str__(self):
+        return f"Sales {self.title} - {self.customer.company_name} ({self.bill_number})"
+
+
+    
+
+class Delivery(models.Model):
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('in_progress', 'In Progress'),
+        ('delivered', 'Delivered'),
+        ('cancelled', 'Cancelled'),
+    ]
+
+    customer = models.ForeignKey(Customer, on_delete=models.CASCADE)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='draft')
+    title = models.CharField(max_length=255)
+    date = models.DateField()
+    place_of_supply = models.CharField(max_length=50)
+    project = models.CharField(max_length=50, null=True, blank=True)
+    service_request = models.ForeignKey(ServiceRequest, on_delete=models.SET_NULL, null=True, blank=True)
+    leave = models.CharField(max_length=50, null=True, blank=True)  # Leave dropdown (values can be predefined)
+    delivery_vehicle = models.CharField(max_length=50, null=True, blank=True)
+    delivery_status = models.CharField(max_length=50, choices=[
+        ('pending', 'Pending'),
+        ('dispatched', 'Dispatched'),
+        ('delivered', 'Delivered'),
+        ('returned', 'Returned'),
+    ], default='pending')
+    delivery_type = models.CharField(max_length=50, default='Courier')
+    tracking = models.CharField(max_length=255, null=True, blank=True)
+
+    def __str__(self):
+        return f"Delivery {self.title} for {self.customer.company_name} on {self.date}"
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

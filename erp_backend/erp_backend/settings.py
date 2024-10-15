@@ -60,6 +60,12 @@ REST_FRAMEWORK = {
     )
 }
 
+
+SIMPLE_JWT = {
+    'BLACKLIST_AFTER_ROTATION': True,  
+    'TOKEN_BLACKLIST': True,  # Enable the blacklist feature
+}
+
 ROOT_URLCONF = 'erp_backend.urls'
 
 TEMPLATES = [

@@ -1,93 +1,81 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
-import { LockClosedIcon } from '@heroicons/react/24/solid';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  // Check if the user is already authenticated
-  useEffect(() => {
-    if (localStorage.getItem('access_token')) {
-      navigate('/'); // Redirect to dashboard if already logged in
-    }
-  }, [navigate]);
-
-  const handleLogin = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
     try {
-      const response = await axios.post('http://localhost:8000/api/login/', { username, password });
-      localStorage.setItem('access_token', response.data.access);
-      localStorage.setItem('refresh_token', response.data.refresh);
-      // Redirect to Layout page (dashboard)
+      const response = await fetch('http://localhost:8000/api/login/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ username, password }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Login failed');
+      }
+
+      const data = await response.json();
+      // Store access and refresh tokens
+      localStorage.setItem('access_token', data.access);
+      localStorage.setItem('refresh_token', data.refresh);
+      // Store the username in localStorage
+      localStorage.setItem('username', username);
+
+      // Redirect to home page
       navigate('/');
-    } catch (error) {
-      setError(error.response?.data?.error || 'An error occurred. Please try again.');
-    } finally {
-      setLoading(false);
+    } catch (err) {
+      setError(err.message);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
-        </div>
-        <form className="mt-8 space-y-6" onSubmit={handleLogin}>
-          <input type="hidden" name="remember" defaultValue="true" />
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-              <label htmlFor="username" className="sr-only">Username</label>
-              <input
-                id="username"
-                name="username"
-                type="text"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="sr-only">Password</label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-          </div>
-
-          {error && (
-            <div className="text-red-500 text-sm">{error}</div>
-          )}
-
+    <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-blue-500 to-purple-600">
+      <div className="w-full max-w-md p-8 space-y-6 bg-white rounded-lg shadow-lg">
+        <h2 className="text-2xl font-bold text-center text-gray-800">Login</h2>
+        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+        <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <button
-              type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-              disabled={loading}
-            >
-              <span className="absolute left-0 inset-y-0 flex items-center pl-3">
-                <LockClosedIcon className="h-5 w-5 text-indigo-500 group-hover:text-indigo-400" aria-hidden="true" />
-              </span>
-              {loading ? 'Signing in...' : 'Sign in'}
-            </button>
+            <label className="block text-sm font-medium text-gray-700" htmlFor="username">Username</label>
+            <input
+              type="text"
+              id="username"
+              placeholder="Enter your username"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              required
+              className="block w-full px-4 py-2 mt-1 text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+            />
           </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700" htmlFor="password">Password</label>
+            <input
+              type="password"
+              id="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              className="block w-full px-4 py-2 mt-1 text-gray-700 border border-gray-300 rounded-md focus:outline-none focus:ring focus:ring-blue-500"
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full px-4 py-2 text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition duration-150"
+          >
+            Login
+          </button>
         </form>
+        <p className="text-sm text-center text-gray-600">
+          Don’t have an account? <a href="/register" className="text-blue-600 hover:underline">Register</a>
+        </p>
       </div>
     </div>
   );
